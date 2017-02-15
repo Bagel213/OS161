@@ -1,0 +1,28 @@
+a.Thread questions
+•What happens to a thread when it exits (i.e., calls thread_exit())? What about when it sleeps? 
+
+•What does it mean for a thread to be in each of the possible thread states?
+New - Thread is being created ?
+Ready- A new thread has been created but has not run yet
+Waiting- Thread is waiting for some event to occur in order to be moved to the running state
+Running- Thread instructions are currently being executed
+Terminated - the thread has finished executing?
+
+•What does it mean to turn interrupts off? How is this accomplished? Why is it important to turn off interrupts in the thread subsystem code?
+
+•What happens when a thread wakes up another thread? How does a sleeping thread get to run again?
+
+b.Scheduler Questions
+•What function(s) choose(s) the next thread to run?
+•How does it (do they) pick the next thread?
+•What role does the hardware timer play in scheduling? What hardware independent function is called on a timer interrupt?
+
+c.Synchronization questions
+•Describe how wchan_sleep() and wchan_wakeone() are used to implement semaphores.
+•Why does the lock API in OS/161 provide lock_do_i_hold(), but not lock_get_holder()?
+
+
+
+//This is a note section for the coding portion of the project. It is to be removed before submitting the project.
+bmake: add things that are missing to the path
+
