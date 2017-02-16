@@ -76,6 +76,9 @@ struct lock {
         char *lk_name;
         HANGMAN_LOCKABLE(lk_hangman);   /* Deadlock detector hook. */
         // add what you need here
+        
+        int isHeld; // Boolean value to show whether lock is held or not
+
         // (don't forget to mark things volatile as needed)
 };
 
