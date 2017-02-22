@@ -157,7 +157,6 @@ thread_create(const char *name)
 	thread->parent_pid = NULL;
 	thread->pid = pid_counter + 1;
 	thread->child_pid = NULL;
-	thread->child_count = 0;
 	return thread;
 }
 
@@ -830,12 +829,12 @@ thread_exit(void)
 	panic("braaaaaaaiiiiiiiiiiinssssss\n");
 }
 
-void
-thread_join(void){
+int
+thread_join(const char *name){
 
-	while (curthread->child_count != 0){                                         //join
+	//if thread name exists                                         //join
 		P(curthread->my_sem_thread);
-		curthread->child_count -= 1;
+	
 	}
 	//printf("Exited child pid:%d", pid_return);
 }
