@@ -68,7 +68,8 @@ static struct cpuarray allcpus;
 
 /* Used to wait for secondary CPUs to come online. */
 static struct semaphore *cpu_startup_sem;
-
+int pid_counter = 0;                                                              //global pid counter defined
+int pid_return = 0;																	//global pid return value
 ////////////////////////////////////////////////////////////
 
 /*
@@ -152,6 +153,11 @@ thread_create(const char *name)
 
 	/* If you add to struct thread, be sure to initialize here */
 
+	thread->my_sem_thread = *sem_create(thread->t_name, 0);                                                                  //pid implementation
+	thread->parent_pid = NULL;
+	thread->pid = pid_counter + 1;
+	thread->child_pid = NULL;
+	thread->child_count = 0;
 	return thread;
 }
 
@@ -356,6 +362,7 @@ thread_panic(void)
 	 */
 }
 
+
 /*
  * At system shutdown, ask the other CPUs to switch off.
  */
@@ -506,7 +513,9 @@ thread_fork(const char *name,
 	struct thread *newthread;
 	int result;
 
-	newthread = thread_create(name);
+
+
+		newthread = thread_create(name);
 	if (newthread == NULL) {
 		return ENOMEM;
 	}
@@ -519,12 +528,21 @@ thread_fork(const char *name,
 	}
 	thread_checkstack_init(newthread);
 
+
+
+
+
 	/*
 	 * Now we clone various fields from the parent thread.
 	 */
 
 	/* Thread subsystem fields */
 	newthread->t_cpu = curthread->t_cpu;
+	newthread->parent_pid = curthread->pid; 									//keep track of parent and child pid
+	curthread->child_pid = newthread->pid;                                     //new pid passed to parent
+	newthread->parent_sem_thread = curthread->my_sem_thread;                              //pass parent semaphore to child
+
+	curthread->child_count += 1;
 
 	/* Attach the new thread to its process */
 	if (proc == NULL) {
@@ -787,6 +805,7 @@ thread_exit(void)
 	struct thread *cur;
 
 	cur = curthread;
+	pid_return = cur->pid;
 
 	KASSERT(cur->t_did_reserve_buffers == false);
 
@@ -802,11 +821,25 @@ thread_exit(void)
 	/* Check the stack guard band. */
 	thread_checkstack(cur);
 
+	if (cur->parent_sem_thread != NULL)                                          //unlock semaphore in waiting parent thread_join
+		V(cur->parent_sem_thread);
+
 	/* Interrupts off on this processor */
         splhigh();
 	thread_switch(S_ZOMBIE, NULL, NULL);
 	panic("braaaaaaaiiiiiiiiiiinssssss\n");
 }
+
+void
+thread_join(void){
+
+	while (curthread->child_count != 0){                                         //join
+		P(curthread->my_sem_thread);
+		curthread->child_count -= 1;
+	}
+	//printf("Exited child pid:%d", pid_return);
+}
+
 
 /*
  * Yield the cpu to another process, but stay runnable.

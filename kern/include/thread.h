@@ -42,6 +42,8 @@
 
 struct cpu;
 
+extern int pid_counter;                                                    //PID counter global declared
+extern int pid_return;                                                     //return child pid to parent on exit
 /* get machine-dependent defs */
 #include <machine/thread.h>
 
@@ -102,6 +104,14 @@ struct thread {
 	int t_curspl;			/* Current spl*() state */
 	int t_iplhigh_count;		/* # of times IPL has been raised */
 
+	struct semaphore *my_sem_thread;            //additions for join
+	struct semaphore *parent_sem_thread;
+	int *pid;
+	int *parent_pid;
+	int *child_pid;
+	int *child_count;
+
+
 	/*
 	 * Public fields
 	 */
@@ -153,6 +163,8 @@ int thread_fork(const char *name, struct proc *proc,
  * Interrupts need not be disabled.
  */
 __DEAD void thread_exit(void);
+
+void thread_join(void);
 
 /*
  * Cause the current thread to yield to the next runnable thread, but
