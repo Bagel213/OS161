@@ -537,12 +537,11 @@ thread_fork(const char *name,
 
 	/* Thread subsystem fields */
 	newthread->t_cpu = curthread->t_cpu;
-	newthread->parent_pid = curthread->pid; 									//keep track of parent and child pid
+	newthread->parent_pid = curthread->pid; 					//keep track of parent and child pid
 	curthread->child_pid = newthread->pid;                                     //new pid passed to parent
 	newthread->parent_sem_thread = curthread->my_sem_thread;                              //pass parent semaphore to child
 
-	curthread->child_count += 1;
-
+	
 	/* Attach the new thread to its process */
 	if (proc == NULL) {
 		proc = curthread->t_proc;
