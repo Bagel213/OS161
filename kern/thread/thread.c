@@ -68,7 +68,7 @@ static struct cpuarray allcpus;
 
 /* Used to wait for secondary CPUs to come online. */
 static struct semaphore *cpu_startup_sem;
-
+int tid_counter = 0;
 ////////////////////////////////////////////////////////////
 
 /*
@@ -150,8 +150,9 @@ thread_create(const char *name)
 	/* VFS fields */
 	thread->t_did_reserve_buffers = false;
 
-	/* If you add to struct thread, be sure to initialize here */
-
+	/* If you add to struct thread, be sure to initialize here ****************************************************************/
+    thread->my_tid = ++tid_counter;
+    thread->t_finished = false;
 	return thread;
 }
 
@@ -523,8 +524,14 @@ thread_fork(const char *name,
 	 * Now we clone various fields from the parent thread.
 	 */
 
-	/* Thread subsystem fields */
+	/* Thread subsystem fields ********************************************************************************************/
 	newthread->t_cpu = curthread->t_cpu;
+    if(curthread->sem_mine == NULL)
+        curthread->sem_mine = sem_create(curthread->t_name, 0);
+    if(curthread->sem_mine != NULL)
+        newthread->sem_parent=curthread->sem_mine;
+        
+    
 
 	/* Attach the new thread to its process */
 	if (proc == NULL) {
@@ -552,7 +559,20 @@ thread_fork(const char *name,
 
 	return 0;
 }
-
+/***************************************************************************************************************************/
+int thread_join(struct thread *thread){
+    
+    thread->t_join = true;
+    if (thread->t_finished == false){   
+        P(curthread->sem_mine);
+        return thread->my_tid;
+    }
+    else
+        
+    return 0;
+}
+    
+    
 /*
  * High level, machine-independent context switch code.
  *
@@ -787,8 +807,8 @@ thread_exit(void)
 	struct thread *cur;
 
 	cur = curthread;
-
-	KASSERT(cur->t_did_reserve_buffers == false);
+    
+    KASSERT(cur->t_did_reserve_buffers == false);
 
 	/*
 	 * Detach from our process. You might need to move this action
@@ -802,7 +822,12 @@ thread_exit(void)
 	/* Check the stack guard band. */
 	thread_checkstack(cur);
 
-	/* Interrupts off on this processor */
+    cur->t_finished = true;/*****************************************************************************/
+    if(cur->t_join == true)
+        V(cur->sem_parent);
+
+	
+    /* Interrupts off on this processor */
         splhigh();
 	thread_switch(S_ZOMBIE, NULL, NULL);
 	panic("braaaaaaaiiiiiiiiiiinssssss\n");
