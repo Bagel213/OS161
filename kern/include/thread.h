@@ -108,8 +108,13 @@ struct thread {
 
 	/* VFS */
 	bool t_did_reserve_buffers;	/* reserve_buffers() in effect */
-
-	/* add more here as needed */
+    
+    int my_tid;    
+    struct semaphore *sem_parent;
+    struct semaphore *sem_mine;
+    bool t_join;
+    bool t_finished;
+    struct spinlock j_spin;
 };
 
 /*
@@ -153,6 +158,8 @@ int thread_fork(const char *name, struct proc *proc,
  * Interrupts need not be disabled.
  */
 __DEAD void thread_exit(void);
+
+int thread_join(struct thread *thread);
 
 /*
  * Cause the current thread to yield to the next runnable thread, but
