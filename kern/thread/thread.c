@@ -50,6 +50,7 @@
 #include <addrspace.h>
 #include <mainbus.h>
 #include <vnode.h>
+#include <array.h>
 
 
 /* Magic number used as a guard value on kernel thread stacks. */
@@ -157,7 +158,8 @@ thread_create(const char *name)
     tid_counter += 10;              //increment thread ID by 10 
     thread->my_tid = tid_counter;   //Set thread ID
     thread->t_finished = false;     
-	return thread;
+	thread->child_list = array_create();
+    return thread;
 }
 
 /*
@@ -294,6 +296,7 @@ thread_destroy(struct thread *thread)
 	/* sheer paranoia */
 	thread->t_wchan_name = "DESTROYED";
 
+    
 	kfree(thread->t_name);
 	kfree(thread);
 }
@@ -543,7 +546,8 @@ thread_fork(const char *name,
     curthread->child_count+=1;
     
     /*Set parent pointer to its new child*/
-    curthread->t_child[curthread->child_count] = newthread;
+    curthread->t_child = newthread;
+    array_add(curthread->child_list, curthread->t_child, NULL);
     
         
     
@@ -580,11 +584,12 @@ int thread_join(const char *name){
     int childID;    //return value 
          
     for(int i=1; i<=curthread->child_count; i++){               //check that request join name is a child
-        if (strcmp(name, curthread->t_child[i]->t_name) == 0){ 
+        curthread->t_child = array_get(curthread->child_list, i);        
+        if (strcmp(name, curthread->t_child->t_name) == 0){ 
                     
-            if (curthread->t_child[i]->t_finished == false){    //check if child has already finished    
-                curthread->t_child[i]->t_join = true;           //tell child it is to join  
-                childID = curthread->t_child[i]->my_tid;        //set return value
+            if (curthread->t_child->t_finished == false){    //check if child has already finished    
+                curthread->t_child->t_join = true;           //tell child it is to join  
+                childID = curthread->t_child->my_tid;        //set return value
                 P(curthread->sem_mine);                         //wait for exit
                 return childID;
            }
