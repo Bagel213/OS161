@@ -158,7 +158,7 @@ thread_create(const char *name)
     tid_counter += 10;              //increment thread ID by 10 
     thread->my_tid = tid_counter;   //Set thread ID
     thread->t_finished = false;     
-	thread->child_list = array_create();
+    thread->child_list = array_create();  //maintain list of all children
     return thread;
 }
 
@@ -545,7 +545,7 @@ thread_fork(const char *name,
     /*keep track of number of children*/    
     curthread->child_count+=1;
     
-    /*Set parent pointer to its new child*/
+    /*Set parent pointer to its new child and add to list of children*/
     curthread->t_child = newthread;
     array_add(curthread->child_list, curthread->t_child, NULL);
     
