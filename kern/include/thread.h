@@ -117,8 +117,8 @@ struct thread {
     struct semaphore *sem_mine;     //pointer to owned semaphore
     bool t_join;                    //Let a thread know it needs to join, thus unlock parent on exit
     bool t_finished;                //Variable to let join know if thread completed prior to join being called
-    struct array *child_list;    
-    struct thread *t_child;     //Current implementation allows for up to 50 childred.  Dynamic array 
+    struct array *child_list;       //Array of child pointers for list of children  
+    struct thread *t_child;          //Current implementation allows for up to 50 childred.  Dynamic array 
                                     //could increase this.    
 };
 
