@@ -591,6 +591,7 @@ int thread_join(const char *name){
                 curthread->t_child->t_join = true;           //tell child it is to join  
                 childID = curthread->t_child->my_tid;        //set return value
                 P(curthread->sem_mine);                         //wait for exit
+                array_remove(curthread->child_list, i);                
                 return childID;
            }
         return 0;                                               //if already finished return 0
