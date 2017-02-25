@@ -109,12 +109,16 @@ struct thread {
 	/* VFS */
 	bool t_did_reserve_buffers;	/* reserve_buffers() in effect */
     
-    int my_tid;    
-    struct semaphore *sem_parent;
-    struct semaphore *sem_mine;
-    bool t_join;
-    bool t_finished;
-    struct spinlock j_spin;
+    /*Added variables for join implementation*/
+    
+    int my_tid;                     //thread ID number  
+    int child_count;                //child counter    
+    struct semaphore *sem_parent;   //pointer to parent's semaphore
+    struct semaphore *sem_mine;     //pointer to owned semaphore
+    bool t_join;                    //Let a thread know it needs to join, thus unlock parent on exit
+    bool t_finished;                //Variable to let join know if thread completed prior to join being called
+    struct thread *t_child[50];     //Current implementation allows for up to 50 childred.  Dynamic array 
+                                    //could increase this.    
 };
 
 /*
@@ -159,7 +163,7 @@ int thread_fork(const char *name, struct proc *proc,
  */
 __DEAD void thread_exit(void);
 
-int thread_join(struct thread *thread);
+int thread_join(const char *name);
 
 /*
  * Cause the current thread to yield to the next runnable thread, but

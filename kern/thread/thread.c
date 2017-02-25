@@ -68,6 +68,8 @@ static struct cpuarray allcpus;
 
 /* Used to wait for secondary CPUs to come online. */
 static struct semaphore *cpu_startup_sem;
+
+/*Global id counter for created threads*/
 int tid_counter = 0;
 ////////////////////////////////////////////////////////////
 
@@ -151,8 +153,10 @@ thread_create(const char *name)
 	thread->t_did_reserve_buffers = false;
 
 	/* If you add to struct thread, be sure to initialize here ****************************************************************/
-    thread->my_tid = ++tid_counter;
-    thread->t_finished = false;
+    thread->child_count = 0;          
+    tid_counter += 10;              //increment thread ID by 10 
+    thread->my_tid = tid_counter;   //Set thread ID
+    thread->t_finished = false;     
 	return thread;
 }
 
@@ -505,7 +509,7 @@ thread_fork(const char *name,
 	    void *data1, unsigned long data2)
 {
 	struct thread *newthread;
-	int result;
+    int result;
 
 	newthread = thread_create(name);
 	if (newthread == NULL) {
@@ -524,12 +528,23 @@ thread_fork(const char *name,
 	 * Now we clone various fields from the parent thread.
 	 */
 
-	/* Thread subsystem fields ********************************************************************************************/
+	/* Thread subsystem fields*/
 	newthread->t_cpu = curthread->t_cpu;
+    
+    /*Additions for thread_join*/
+    
+    /*Create parent semaphore if needed and set pointers*/
     if(curthread->sem_mine == NULL)
         curthread->sem_mine = sem_create(curthread->t_name, 0);
     if(curthread->sem_mine != NULL)
         newthread->sem_parent=curthread->sem_mine;
+    
+    /*keep track of number of children*/    
+    curthread->child_count+=1;
+    
+    /*Set parent pointer to its new child*/
+    curthread->t_child[curthread->child_count] = newthread;
+    
         
     
 
@@ -559,17 +574,24 @@ thread_fork(const char *name,
 
 	return 0;
 }
-/***************************************************************************************************************************/
-int thread_join(struct thread *thread){
+
+int thread_join(const char *name){
     
-    thread->t_join = true;
-    if (thread->t_finished == false){   
-        P(curthread->sem_mine);
-        return thread->my_tid;
-    }
-    else
-        
-    return 0;
+    int childID;    //return value 
+         
+    for(int i=1; i<=curthread->child_count; i++){               //check that request join name is a child
+        if (strcmp(name, curthread->t_child[i]->t_name) == 0){ 
+                    
+            if (curthread->t_child[i]->t_finished == false){    //check if child has already finished    
+                curthread->t_child[i]->t_join = true;           //tell child it is to join  
+                childID = curthread->t_child[i]->my_tid;        //set return value
+                P(curthread->sem_mine);                         //wait for exit
+                return childID;
+           }
+        return 0;                                               //if already finished return 0
+       }
+   }   
+    return 0;   //if name is not a child return 0
 }
     
     
@@ -822,10 +844,10 @@ thread_exit(void)
 	/* Check the stack guard band. */
 	thread_checkstack(cur);
 
-    cur->t_finished = true;/*****************************************************************************/
-    if(cur->t_join == true)
+   
+    if(cur->t_join == true)                     //If thread is to join wake up parent
         V(cur->sem_parent);
-
+    cur->t_finished = true;                     //Update status
 	
     /* Interrupts off on this processor */
         splhigh();
