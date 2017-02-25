@@ -78,6 +78,8 @@ runthreads(void)
     kprintf("Returned thread id:%d\n", result);
     result2 = thread_join(name_two);
     kprintf("Returned thread id:%d", result2);
+    /*If return value is zero either the name was not that of a child or the child thread
+      had completed prior to join being called*/
     	
     
 		
