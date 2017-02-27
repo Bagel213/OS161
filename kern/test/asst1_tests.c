@@ -1,5 +1,5 @@
 /*
- * Thread_join test code.
+ * Thread_join, lock, and cv test code.
  */
 #include <types.h>
 #include <lib.h>
@@ -8,7 +8,12 @@
 #include <test.h>
 
 #define NTHREADS  1
+/*global values for lock testing*/
+static volatile unsigned long ltval1;
+static volatile unsigned long ltval2;
+static volatile unsigned long ltval3;
 
+struct lock* lock;
 
 static
 void
@@ -21,9 +26,7 @@ jointhisthread(void *junk, unsigned long num)
 	/*short delay*/
 	for (i=0; i<200000; i++);	
         num=num+i;
-    thread_exit();
-	
-    
+    thread_exit(); 
 }
 
 static
@@ -39,6 +42,9 @@ jointhisthreadTwo(void *junk, unsigned long num)
         num=num+i;
     thread_exit();
 }
+
+/*Create threads and call them to join, causing parent to wait, then when child
+exits return its ID*/
 
 static
 void
@@ -58,9 +64,7 @@ runthreads(void)
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
 		}
-    
-	
-    
+
 		snprintf(name_one, sizeof(name_two), "threadtest%d", i);
 		result2 = thread_fork(name_two, NULL,
 				     jointhisthreadTwo,
@@ -69,9 +73,6 @@ runthreads(void)
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
 		}
-
-    
-    
 	
     /*Call thread join and display the thread id of each child on return*/   
     result = thread_join(name_one);
@@ -81,10 +82,65 @@ runthreads(void)
     /*If return value is zero either the name was not that of a child or the child thread
       had completed prior to join being called*/
     	
-    
-		
 	
 }
+
+/*Make changes via computations to global shared variables in multiple threads.  Lock the variables
+and ensure the lock worked by doing computations and ensure other threads have not made changes
+to the shared variables between the computations and a test for the proper result*/
+
+static
+void
+lock_thread(void *junk, unsigned long test)
+{
+	int i;
+	(void)junk;
+
+	for (i=0; i<50; i++) {
+		lock_acquire(lock);
+		ltval1 = test;
+		ltval2 = test+test;
+		ltval3 = test*test;
+
+		if (ltval2 != ltval1+ltval1) {
+			kprintf("Add test fail.\n");
+		}
+
+		if (ltval3 != ltval1*ltval1) {
+			kprintf("Mult test fail\n");
+		}
+
+		lock_release(lock);
+	}
+	
+}
+static
+void
+asst1_locktest() {
+	
+    int result, i;
+    char lock_name[4] = "lock";
+	
+    if (lock==NULL) {
+		lock = lock_create(lock_name);
+		if (lock == NULL) {
+			panic("asst1_locktest: lock_create failed\n");
+		}	
+    }
+
+    /*create five threads to test locks*/
+
+    for (i=0; i<5; i++) {
+		result = thread_fork("synchtest", NULL, lock_thread,
+				     NULL, i);
+		if (result) {
+			panic("locktest: thread_fork failed: %s\n",
+			      strerror(result));
+		}
+	}
+	
+}
+
 
 
 int
@@ -98,7 +154,13 @@ asst1_tests(int nargs, char **args)
 	runthreads();
 	kprintf("\nThread_join test done.\n");
 
-    /*Lock and cv custom test still need to be implemented*/
+    /*Lock test*/
+    kprintf("Starting lock test...\n");
+    asst1_locktest();
+    kprintf("Lock test done.\n");
+
+    
+
+
 	return 0;
 }
-
