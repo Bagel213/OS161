@@ -7,13 +7,14 @@
 #include <synch.h>
 #include <test.h>
 
-#define NTHREADS  1
+
 /*global values for lock testing*/
 static volatile unsigned long ltval1;
 static volatile unsigned long ltval2;
 static volatile unsigned long ltval3;
 
-struct lock* lock;
+struct lock *lock;
+struct cv *cv
 
 static
 void
@@ -96,7 +97,7 @@ lock_thread(void *junk, unsigned long test)
 	int i;
 	(void)junk;
 
-	for (i=0; i<50; i++) {
+	for (i=0; i<500; i++) {
 		lock_acquire(lock);
 		ltval1 = test;
 		ltval2 = test+test;
