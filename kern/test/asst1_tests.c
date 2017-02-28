@@ -17,6 +17,8 @@ static volatile unsigned long ltval3;
 struct lock *lock, *lockb;
 struct cv *cv;
 
+
+
 static
 void
 jointhisthread(void *junk, unsigned long num)
@@ -51,14 +53,16 @@ exits return its ID*/
 static
 void
 runthreads(void)
-{
-	char name_one[7] = "thread1";
+{	
+    char name_one[7] = "thread";
     char name_two[7] = "thread2";
+    char name_three[7] = "thread3";
+    char name_four[7] = "thread4";
     int i = 1;
-    int result, result2;
+    int result, result2, result3, result4;
     
 
-	/*Create two forks (children) for testing with unique names*/
+	/*Create four forks (children) for testing with unique names*/
 		snprintf(name_one, sizeof(name_one), "threadtest%d", i);
 		result = thread_fork(name_one, NULL,
 				     jointhisthread,
@@ -76,13 +80,36 @@ runthreads(void)
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
         }
+        	snprintf(name_one, sizeof(name_one), "threadtest%d", i);
+		result3 = thread_fork(name_three, NULL,
+				     jointhisthread,
+				     NULL, i);
+		if (result3) {
+			panic("threadtest: thread_fork failed %s)\n",
+			      strerror(result));
+		}
+
+		snprintf(name_one, sizeof(name_two), "threadtest%d", i);
+		result4 = thread_fork(name_four, NULL,
+				     jointhisthreadTwo,
+				     NULL, i);
+		if (result4) {
+			panic("threadtest: thread_fork failed %s)\n",
+			      strerror(result));
+        }
+
+        
 	
     /*Call thread join and display the thread id of each child on return 
-    Thread name_one completes first, but thread two is joined first.  So 
+    Thread name_one completes first, but thread two is joined first and so on. Thus
         they return in order of joins and not the order of completion*/
     result = thread_join(name_two);
     kprintf("Returned thread id:%d\n", result);
     result2 = thread_join(name_one);
+    kprintf("Returned thread id:%d\n", result2);
+    result = thread_join(name_four);
+    kprintf("Returned thread id:%d\n", result);
+    result2 = thread_join(name_three);
     kprintf("Returned thread id:%d\n", result2);
     /*If return value is zero either the name was not that of a child*/
     	
@@ -236,6 +263,7 @@ asst1_tests(int nargs, char **args)
 
 	/*thread_join test*/
 	kprintf("Starting thread_join test...\n");
+    kprintf("Join in order thread 2,1,4,3\n");
 	runthreads();
 	kprintf("Thread_join test done.\n");
 

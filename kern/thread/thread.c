@@ -153,14 +153,14 @@ thread_create(const char *name)
 	/* VFS fields */
 	thread->t_did_reserve_buffers = false;
 
-	/* If you add to struct thread, be sure to initialize here ****************************************************************/
+	/* If you add to struct thread, be sure to initialize here */
     thread->child_count = 0;          
     tid_counter += 10;              //increment thread ID by 10 
     thread->my_tid = tid_counter;   //Set thread ID
-    thread->t_parent = false;
+    thread->t_parent = false;       //Does thread have parent?
              
     thread->child_list = array_create();  //maintain list of all children
-    thread->sem_parent = NULL;
+    thread->sem_parent = NULL;              //Semaphores for waiting
     thread->sem_child = NULL;
     return thread;
 }
@@ -540,7 +540,7 @@ thread_fork(const char *name,
     
     /*Additions for thread_join*/
     
-    /*Create parent semaphore if needed and set pointers*/
+    /*Create semaphores */
     
     newthread->sem_parent = sem_create(newthread->t_name, 0);
     newthread->sem_child = sem_create(newthread->t_name, 0);
@@ -591,13 +591,13 @@ int thread_join(const char *name){
     int childID;    //return value 
     int count = curthread->child_count;
          
-    for(int i=1; i <= count; i++){               //check that request join name is a child
+    for(int i=1; i < count; i++){               //check that request join name is a child
         thread = array_get(curthread->child_list, i);        
         if (strcmp(name, thread->t_name) == 0){ 
-            P(thread->sem_child);
+            P(thread->sem_child);               //Wait for child to finish
             curthread->child_count--;
             childID = thread->my_tid;
-            V(thread->sem_parent);
+            V(thread->sem_parent);              //Wake up child if waiting
             array_remove(curthread->child_list, i);            
             return childID;        
         }
@@ -863,6 +863,7 @@ thread_exit(void)
     P(cur->sem_parent);
     }    
     
+    /*clean up semaphores*/
     sem_destroy(cur->sem_child);
     sem_destroy(cur->sem_parent);
 	
