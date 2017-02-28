@@ -50,6 +50,7 @@
 #include <addrspace.h>
 #include <mainbus.h>
 #include <vnode.h>
+#include <array.h>
 
 
 /* Magic number used as a guard value on kernel thread stacks. */
@@ -69,6 +70,8 @@ static struct cpuarray allcpus;
 /* Used to wait for secondary CPUs to come online. */
 static struct semaphore *cpu_startup_sem;
 
+/*Global id counter for created threads*/
+int tid_counter = 0;
 ////////////////////////////////////////////////////////////
 
 /*
@@ -151,8 +154,13 @@ thread_create(const char *name)
 	thread->t_did_reserve_buffers = false;
 
 	/* If you add to struct thread, be sure to initialize here */
-
-	return thread;
+    thread->child_count = 0;          
+    tid_counter += 10;              //increment thread ID by 10 
+    thread->my_tid = tid_counter;   //Set thread ID
+    thread->t_parent = false;       //Does thread have parent     
+    thread->sem_parent = NULL;      //Semaphores for waiting
+    thread->sem_child = NULL;
+    return thread;
 }
 
 /*
@@ -289,6 +297,7 @@ thread_destroy(struct thread *thread)
 	/* sheer paranoia */
 	thread->t_wchan_name = "DESTROYED";
 
+    
 	kfree(thread->t_name);
 	kfree(thread);
 }
@@ -423,6 +432,7 @@ cpu_hatch(unsigned software_number)
 	kprintf("cpu%u: %s\n", software_number, buf);
 
 	V(cpu_startup_sem);
+
 	thread_exit();
 }
 
@@ -498,6 +508,80 @@ thread_make_runnable(struct thread *target, bool already_have_lock)
  * as the caller, unless the scheduler intervenes first.
  */
 int
+thread_fork_join(const char *name,
+	    struct proc *proc,
+	    void (*entrypoint)(void *data1, unsigned long data2),
+	    void *data1, unsigned long data2, struct thread **thread)
+{
+	struct thread *newthread;
+    int result;
+
+	newthread = thread_create(name);
+	if (newthread == NULL) {
+		return ENOMEM;
+	}
+
+	/* Allocate a stack */
+	newthread->t_stack = kmalloc(STACK_SIZE);
+	if (newthread->t_stack == NULL) {
+		thread_destroy(newthread);
+		return ENOMEM;
+	}
+	thread_checkstack_init(newthread);
+
+	/*
+	 * Now we clone various fields from the parent thread.
+	 */
+
+	/* Thread subsystem fields*/
+	newthread->t_cpu = curthread->t_cpu;
+    
+    /*Additions for thread_join*/
+    
+    /*Create semaphores */
+    
+    newthread->sem_parent = sem_create(newthread->t_name, 0);
+    newthread->sem_child = sem_create(newthread->t_name, 0);
+    
+    /*keep track of number of children*/    
+    curthread->child_count+=1;
+    
+    /*Set parent pointer to its new child and add to list of children*/
+    curthread->t_child = newthread;
+    newthread->t_parent = true;
+
+    *thread = newthread;
+        
+    
+
+	/* Attach the new thread to its process */
+	if (proc == NULL) {
+		proc = curthread->t_proc;
+	}
+	result = proc_addthread(proc, newthread);
+	if (result) {
+		/* thread_destroy will clean up the stack */
+		thread_destroy(newthread);
+		return result;
+	}
+
+	/*
+	 * Because new threads come out holding the cpu runqueue lock
+	 * (see notes at bottom of thread_switch), we need to account
+	 * for the spllower() that will be done releasing it.
+	 */
+	newthread->t_iplhigh_count++;
+
+	/* Set up the switchframe so entrypoint() gets called */
+	switchframe_init(newthread, entrypoint, data1, data2);
+
+	/* Lock the current cpu's run queue and make the new thread runnable */
+	thread_make_runnable(newthread, false);
+
+	return 0;
+}
+
+int
 thread_fork(const char *name,
 	    struct proc *proc,
 	    void (*entrypoint)(void *data1, unsigned long data2),
@@ -553,6 +637,25 @@ thread_fork(const char *name,
 	return 0;
 }
 
+
+int thread_join(struct thread *thread){
+      
+            int childID;    //return value 
+             
+            if(thread->t_parent == true){
+             P(thread->sem_child);               //Wait for child to finish
+             curthread->child_count--;
+             childID = thread->my_tid;
+             V(thread->sem_parent);              //Wake up child if waiting
+                       
+            return childID;        
+        }
+        
+     
+    return 0;   //if name is not a child return 0
+}
+    
+    
 /*
  * High level, machine-independent context switch code.
  *
@@ -787,8 +890,8 @@ thread_exit(void)
 	struct thread *cur;
 
 	cur = curthread;
-
-	KASSERT(cur->t_did_reserve_buffers == false);
+    
+    KASSERT(cur->t_did_reserve_buffers == false);
 
 	/*
 	 * Detach from our process. You might need to move this action
@@ -801,8 +904,20 @@ thread_exit(void)
 
 	/* Check the stack guard band. */
 	thread_checkstack(cur);
-
-	/* Interrupts off on this processor */
+    
+    if (cur->t_parent == true){
+    //release wait for child    
+    V(cur->sem_child);
+    //wait for parent
+    P(cur->sem_parent);
+        
+    
+    /*clean up semaphores*/
+   sem_destroy(cur->sem_child);
+   sem_destroy(cur->sem_parent);
+   }
+	
+    /* Interrupts off on this processor */
         splhigh();
 	thread_switch(S_ZOMBIE, NULL, NULL);
 	panic("braaaaaaaiiiiiiiiiiinssssss\n");

@@ -36,8 +36,8 @@
 #include <synch.h>
 #include <test.h>
 
-#define NTHREADS  8
 
+#define NTHREADS  8
 static struct semaphore *tsem = NULL;
 
 static
@@ -64,7 +64,7 @@ loudthread(void *junk, unsigned long num)
 	for (i=0; i<120; i++) {
 		putch(ch);
 	}
-	V(tsem);
+	thread_exit();
 }
 
 /*
@@ -90,7 +90,7 @@ quietthread(void *junk, unsigned long num)
 	for (i=0; i<200000; i++);
 	putch(ch);
 
-	V(tsem);
+	thread_exit();
 }
 
 static
@@ -99,12 +99,13 @@ runthreads(int doloud)
 {
 	char name[16];
 	int i, result;
+    struct thread *threads[8];
 
 	for (i=0; i<NTHREADS; i++) {
 		snprintf(name, sizeof(name), "threadtest%d", i);
-		result = thread_fork(name, NULL,
+		result = thread_fork_join(name, NULL,
 				     doloud ? loudthread : quietthread,
-				     NULL, i);
+				     NULL, i,&(threads[i]));
 		if (result) {
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
@@ -112,7 +113,7 @@ runthreads(int doloud)
 	}
 
 	for (i=0; i<NTHREADS; i++) {
-		P(tsem);
+		thread_join(threads[i]);
 	}
 }
 

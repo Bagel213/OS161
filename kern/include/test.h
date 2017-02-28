@@ -59,6 +59,7 @@ int locktest(int, char **);
 int cvtest(int, char **);
 int cvtest2(int, char **);
 
+
 /* semaphore unit tests */
 int semu1(int, char **);
 int semu2(int, char **);
@@ -98,6 +99,9 @@ int kmallocstress(int, char **);
 int kmalloctest3(int, char **);
 int kmalloctest4(int, char **);
 int nettest(int, char **);
+
+/* custom test */
+int asst1_tests(int, char **);
 
 /* Routine for running a user-level program. */
 int runprogram(char *progname);

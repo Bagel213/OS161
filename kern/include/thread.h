@@ -108,8 +108,15 @@ struct thread {
 
 	/* VFS */
 	bool t_did_reserve_buffers;	/* reserve_buffers() in effect */
-
-	/* add more here as needed */
+    
+    /*Added variables for join implementation*/
+    
+    int my_tid;                     //thread ID number  
+    int child_count;                //child counter    
+    struct semaphore *sem_parent;   //wait on paretn semaphore
+    struct semaphore *sem_child;     //wait on child semaphore
+    bool t_parent;                  // Do I have a parent             
+    struct thread *t_child;         //pointer to child for array_add and for thread_join implentation    
 };
 
 /*
@@ -148,11 +155,17 @@ int thread_fork(const char *name, struct proc *proc,
                 void (*func)(void *, unsigned long),
                 void *data1, unsigned long data2);
 
+int thread_fork_join(const char *name, struct proc *proc,
+                void (*func)(void *, unsigned long),
+                void *data1, unsigned long data2, struct thread **thread);
+
 /*
  * Cause the current thread to exit.
  * Interrupts need not be disabled.
  */
 __DEAD void thread_exit(void);
+
+int thread_join(struct thread *thread);
 
 /*
  * Cause the current thread to yield to the next runnable thread, but
