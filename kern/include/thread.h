@@ -114,9 +114,10 @@ struct thread {
     int my_tid;                     //thread ID number  
     int child_count;                //child counter    
     struct semaphore *sem_parent;   //pointer to parent's semaphore
-    struct semaphore *sem_mine;     //pointer to owned semaphore
+    struct semaphore *sem_child;     //pointer to owned semaphore
     bool t_join;                    //Let a thread know it needs to join, thus unlock parent on exit
-    bool t_finished;                //Variable to let join know if thread completed prior to join being called
+    bool t_parent;
+                   //Variable to let join know if thread completed prior to join being called
     struct array *child_list;       //Array of child pointers for list of children  
     struct thread *t_child;         //pointer to child for array_add and for thread_join implentation    
 };

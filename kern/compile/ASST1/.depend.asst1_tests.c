@@ -6,4 +6,4 @@ asst1_tests.o: ../../test/asst1_tests.c ../../include/types.h \
  includelinks/machine/spinlock.h ../../include/threadlist.h \
  includelinks/machine/thread.h ../../include/setjmp.h \
  includelinks/kern/machine/setjmp.h ../../include/synch.h \
- ../../include/test.h
+ ../../include/test.h ../../include/clock.h ../../include/kern/time.h

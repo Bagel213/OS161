@@ -251,13 +251,13 @@ cv_create(const char *name)
 void
 cv_destroy(struct cv *cv)
 {
-        KASSERT(cv != NULL);
-
         spinlock_cleanup(&cv->cv_spin);
         wchan_destroy(cv->cv_wait);
 
         kfree(cv->cv_name);
         kfree(cv);
+        cv = NULL;
+        KASSERT(cv != NULL);
 }
 
 void

@@ -157,8 +157,11 @@ thread_create(const char *name)
     thread->child_count = 0;          
     tid_counter += 10;              //increment thread ID by 10 
     thread->my_tid = tid_counter;   //Set thread ID
-    thread->t_finished = false;     
+    thread->t_parent = false;
+             
     thread->child_list = array_create();  //maintain list of all children
+    thread->sem_parent = NULL;
+    thread->sem_child = NULL;
     return thread;
 }
 
@@ -431,6 +434,7 @@ cpu_hatch(unsigned software_number)
 	kprintf("cpu%u: %s\n", software_number, buf);
 
 	V(cpu_startup_sem);
+
 	thread_exit();
 }
 
@@ -537,10 +541,12 @@ thread_fork(const char *name,
     /*Additions for thread_join*/
     
     /*Create parent semaphore if needed and set pointers*/
-    if(curthread->sem_mine == NULL)
-        curthread->sem_mine = sem_create(curthread->t_name, 0);
-    if(curthread->sem_mine != NULL)
-        newthread->sem_parent=curthread->sem_mine;
+    
+    newthread->sem_parent = sem_create(newthread->t_name, 0);
+    newthread->sem_child = sem_create(newthread->t_name, 0);
+    
+
+        
     
     /*keep track of number of children*/    
     curthread->child_count+=1;
@@ -548,7 +554,7 @@ thread_fork(const char *name,
     /*Set parent pointer to its new child and add to list of children*/
     curthread->t_child = newthread;
     array_add(curthread->child_list, curthread->t_child, NULL);
-    
+    newthread->t_parent = true;
         
     
 
@@ -581,21 +587,21 @@ thread_fork(const char *name,
 
 int thread_join(const char *name){
     
+    struct thread *thread;    
     int childID;    //return value 
+    int count = curthread->child_count;
          
-    for(int i=1; i<=curthread->child_count; i++){               //check that request join name is a child
-        curthread->t_child = array_get(curthread->child_list, i);        
-        if (strcmp(name, curthread->t_child->t_name) == 0){ 
-                    
-            if (curthread->t_child->t_finished == false){    //check if child has already finished    
-                curthread->t_child->t_join = true;           //tell child it is to join  
-                childID = curthread->t_child->my_tid;        //set return value
-                P(curthread->sem_mine);                         //wait for exit
-                array_remove(curthread->child_list, i);                
-                return childID;
-           }
-        return 0;                                               //if already finished return 0
-       }
+    for(int i=1; i <= count; i++){               //check that request join name is a child
+        thread = array_get(curthread->child_list, i);        
+        if (strcmp(name, thread->t_name) == 0){ 
+            P(thread->sem_child);
+            curthread->child_count--;
+            childID = thread->my_tid;
+            V(thread->sem_parent);
+            array_remove(curthread->child_list, i);            
+            return childID;        
+        }
+        
    }   
     return 0;   //if name is not a child return 0
 }
@@ -849,11 +855,16 @@ thread_exit(void)
 
 	/* Check the stack guard band. */
 	thread_checkstack(cur);
-
-   
-    if(cur->t_join == true)                     //If thread is to join wake up parent
-        V(cur->sem_parent);
-    cur->t_finished = true;                     //Update status
+    
+    if (cur->t_parent == true){
+    //release wait for child    
+    V(cur->sem_child);
+    //wiat for parent
+    P(cur->sem_parent);
+    }    
+    
+    sem_destroy(cur->sem_child);
+    sem_destroy(cur->sem_parent);
 	
     /* Interrupts off on this processor */
         splhigh();

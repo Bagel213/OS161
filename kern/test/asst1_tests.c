@@ -6,6 +6,7 @@
 #include <thread.h>
 #include <synch.h>
 #include <test.h>
+#include <clock.h>
 
 
 /*global values for lock testing*/
@@ -13,8 +14,8 @@ static volatile unsigned long ltval1;
 static volatile unsigned long ltval2;
 static volatile unsigned long ltval3;
 
-struct lock *lock;
-struct cv *cv
+struct lock *lock, *lockb;
+struct cv *cv;
 
 static
 void
@@ -55,6 +56,7 @@ runthreads(void)
     char name_two[7] = "thread2";
     int i = 1;
     int result, result2;
+    
 
 	/*Create two forks (children) for testing with unique names*/
 		snprintf(name_one, sizeof(name_one), "threadtest%d", i);
@@ -73,15 +75,16 @@ runthreads(void)
 		if (result2) {
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
-		}
+        }
 	
-    /*Call thread join and display the thread id of each child on return*/   
-    result = thread_join(name_one);
+    /*Call thread join and display the thread id of each child on return 
+    Thread name_one completes first, but thread two is joined first.  So 
+        they return in order of joins and not the order of completion*/
+    result = thread_join(name_two);
     kprintf("Returned thread id:%d\n", result);
-    result2 = thread_join(name_two);
-    kprintf("Returned thread id:%d", result2);
-    /*If return value is zero either the name was not that of a child or the child thread
-      had completed prior to join being called*/
+    result2 = thread_join(name_one);
+    kprintf("Returned thread id:%d\n", result2);
+    /*If return value is zero either the name was not that of a child*/
     	
 	
 }
@@ -120,10 +123,9 @@ void
 asst1_locktest() {
 	
     int result, i;
-    char lock_name[4] = "lock";
 	
     if (lock==NULL) {
-		lock = lock_create(lock_name);
+		lock = lock_create("testlocka");
 		if (lock == NULL) {
 			panic("asst1_locktest: lock_create failed\n");
 		}	
@@ -132,7 +134,7 @@ asst1_locktest() {
     /*create five threads to test locks*/
 
     for (i=0; i<5; i++) {
-		result = thread_fork("synchtest", NULL, lock_thread,
+		result = thread_fork("locktest", NULL, lock_thread,
 				     NULL, i);
 		if (result) {
 			panic("locktest: thread_fork failed: %s\n",
@@ -142,7 +144,89 @@ asst1_locktest() {
 	
 }
 
+static
+void
+delay_thread_signal(void *junk, unsigned long num)
+{
+	volatile int i;
+    struct timespec time, timeEnd;
+	(void)junk;
 
+	/*Long delay to show the thread calling wait calls wait and resumes 
+    after signal*/
+    gettime(&time);	
+    for (i=0; i<9000000; i++){	
+        num=num+i;
+    }
+    gettime(&timeEnd);
+    timespec_sub(&timeEnd, &time, &timeEnd);
+    kprintf("Time in delay thread = %d\n", timeEnd.tv_nsec);
+    cv_signal(cv, lockb);
+}
+
+static
+void
+delay_thread_broadcast(void *junk, unsigned long num)
+{
+	volatile int i;
+    struct timespec time, timeEnd;
+	(void)junk;
+
+	/*Long delay to show the thread calling wait calls wait and resumes 
+    after signal*/
+    gettime(&time);	
+    for (i=0; i<9000000; i++){	
+        num=num+i;
+    }
+    gettime(&timeEnd);
+    timespec_sub(&timeEnd, &time, &timeEnd);
+    kprintf("Time in delay thread = %d\n", timeEnd.tv_nsec);
+    cv_broadcast(cv, lockb);
+}
+
+static 
+void 
+asst1_cvtest(void)
+{
+
+    int result;
+    int i = 1;        
+    cv = cv_create("testcv");
+    lockb = lock_create("testlockb");     
+    struct timespec time, timeEnd;
+    
+    result = thread_fork("cvtest", NULL, delay_thread_signal,
+				     NULL, i);
+		if (result) {
+			panic("locktest: thread_fork failed: %s\n",
+			      strerror(result));
+		}
+    
+    lock_acquire(lockb);
+    gettime(&time);
+    cv_wait(cv, lockb);
+    gettime(&timeEnd);
+    timespec_sub(&timeEnd, &time, &timeEnd);
+    kprintf("Time elapsed in waiting thread = %d.  Successful wait and signal.\n", timeEnd.tv_nsec); 
+    lock_release(lockb);  
+
+    result = thread_fork("cvtest", NULL, delay_thread_broadcast,
+				     NULL, i);
+		if (result) {
+			panic("locktest: thread_fork failed: %s\n",
+			      strerror(result));
+		}
+    lock_acquire(lockb);
+    gettime(&time);
+    cv_wait(cv, lockb);
+    gettime(&timeEnd);
+    timespec_sub(&timeEnd, &time, &timeEnd);
+    kprintf("Time elapsed in waiting thread = %d.  Successful wait and broadcast.\n", timeEnd.tv_nsec); 
+    lock_release(lockb);    
+		   
+		
+
+}
 
 int
 asst1_tests(int nargs, char **args)
@@ -150,15 +234,20 @@ asst1_tests(int nargs, char **args)
 	(void)nargs;
 	(void)args;
 
-	/*Call function to test thread join with two threads*/
+	/*thread_join test*/
 	kprintf("Starting thread_join test...\n");
 	runthreads();
-	kprintf("\nThread_join test done.\n");
+	kprintf("Thread_join test done.\n");
 
     /*Lock test*/
     kprintf("Starting lock test...\n");
     asst1_locktest();
     kprintf("Lock test done.\n");
+
+    /*CV test*/
+    kprintf("Starting CV test...\n");
+    asst1_cvtest();
+    kprintf("CV test done.\n");
 
     
 
