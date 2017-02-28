@@ -538,6 +538,7 @@ thread_fork_join(const char *name,
     
     /*Additions for thread_join*/
     
+    
     /*Create semaphores */
     
     newthread->sem_parent = sem_create(newthread->t_name, 0);

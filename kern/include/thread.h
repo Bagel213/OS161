@@ -116,7 +116,8 @@ struct thread {
     struct semaphore *sem_parent;   //wait on paretn semaphore
     struct semaphore *sem_child;     //wait on child semaphore
     bool t_parent;                  // Do I have a parent             
-    struct thread *t_child;         //pointer to child for array_add and for thread_join implentation    
+    struct thread *t_child;         //pointer to child for array_add and for thread_join implentation  
+      
 };
 
 /*

@@ -1,0 +1,7 @@
+diff --git a/OS_SP17 b/OS_SP17
+deleted file mode 160000
+index c886688..0000000
+--- a/OS_SP17
++++ /dev/null
+@@ -1 +0,0 @@
+-Subproject commit c886688fd211c41db5d6ea523ddfda136626f572
