@@ -113,12 +113,9 @@ struct thread {
     
     int my_tid;                     //thread ID number  
     int child_count;                //child counter    
-    struct semaphore *sem_parent;   //pointer to parent's semaphore
-    struct semaphore *sem_child;     //pointer to owned semaphore
-   
-    bool t_parent;
-                  
-    
+    struct semaphore *sem_parent;   //wait on paretn semaphore
+    struct semaphore *sem_child;     //wait on child semaphore
+    bool t_parent;                  // Do I have a parent             
     struct thread *t_child;         //pointer to child for array_add and for thread_join implentation    
 };
 

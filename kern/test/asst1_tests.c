@@ -17,99 +17,77 @@ static volatile unsigned long ltval3;
 struct lock *lock, *lockb;
 struct cv *cv;
 
+#define NTHREADS  8
 
 
 static
 void
-jointhisthread(void *junk, unsigned long num)
+loudthread(void *junk, unsigned long num)
 {
+	int ch = '0' + num;
+	int i;
+
+	(void)junk;
+
+	for (i=0; i<120; i++) {
+		putch(ch);
+	}
+	thread_exit();
+}
+
+/*
+ * The idea with this is that you should see
+ *
+ *   01234567 <pause> 01234567
+ *
+ * (possibly with the numbers in different orders)
+ *
+ * The delay loop is supposed to be long enough that it should be clear
+ * if either timeslicing or the scheduler is not working right.
+ */
+static
+void
+quietthread(void *junk, unsigned long num)
+{
+	int ch = '0' + num;
 	volatile int i;
 
 	(void)junk;
 
-	/*short delay*/
-	for (i=0; i<200000; i++);	
-        num=num+i;
-    thread_exit(); 
+	putch(ch);
+	for (i=0; i<200000; i++);
+	putch(ch);
+
+	thread_exit();
 }
+
+/*Modified version of built in test using thread_fork_join and
+thread_join.*/
 
 static
 void
-jointhisthreadTwo(void *junk, unsigned long num)
+runthreads(int doloud)
 {
-	volatile int i;
+	char name[16];
+	int i, result;
+    struct thread *threads[8];
 
-	(void)junk;
-
-	/*Long delay to show the parent is waiting after join is called*/
-	for (i=0; i<9000000; i++);	
-        num=num+i;
-    thread_exit();
-}
-
-/*Create threads and call them to join, causing parent to wait, then when child
-exits return its ID*/
-
-static
-void
-runthreads(void)
-{	
-    char name[7] = "thread";
-    
-    int i = 1;
-    int result;
-    struct thread *threads[2];
-    
-
-	/*Create four forks (children) for testing with unique names*/
+	for (i=0; i<NTHREADS; i++) {
 		snprintf(name, sizeof(name), "threadtest%d", i);
 		result = thread_fork_join(name, NULL,
-				     jointhisthread,
-				     NULL, i, &(threads[i]));
+				     doloud ? loudthread : quietthread,
+				     NULL, i,&(threads[i]));
 		if (result) {
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
 		}
+	}
 
-		snprintf(name, sizeof(name), "threadtest%d", i);
-		result = thread_fork_join(name, NULL,
-				     jointhisthreadTwo,
-				     NULL, i, &(threads[i+1]));
-		if (result) {
-			panic("threadtest: thread_fork failed %s)\n",
-			      strerror(result));
-        }
-        /*	snprintf(name_one, sizeof(name_one), "threadtest%d", i);
-		result = thread_fork(name_three, NULL,
-				     jointhisthread,
-				     NULL, i);
-		if (result3) {
-			panic("threadtest: thread_fork failed %s)\n",
-			      strerror(result));
-		}
-
-		snprintf(name_one, sizeof(name_two), "threadtest%d", i);
-		result = thread_fork(name_four, NULL,
-				     jointhisthreadTwo,
-				     NULL, i);
-		if (result4) {
-			panic("threadtest: thread_fork failed %s)\n",
-			      strerror(result));
-        }*/
-
-        
-	
-    /*Call thread join and display the thread id of each child on return 
-    Thread name_one completes first, but thread two is joined first and so on. Thus
-        they return in order of joins and not the order of completion*/
-    result = thread_join(threads[i+1]);
-    kprintf("Returned thread id:%d\n", result);
-      result = thread_join(threads[i]);
-    kprintf("Returned thread id:%d\n", result);
-    /*If return value is zero either the name was not that of a child*/
-    	
-	
+	for (i=0; i<NTHREADS; i++) {
+		thread_join(threads[i]);
+	}
 }
+
 
 /*Make changes via computations to global shared variables in multiple threads.  Lock the variables
 and ensure the lock worked by doing computations and ensure other threads have not made changes
@@ -258,13 +236,7 @@ asst1_tests(int nargs, char **args)
 	(void)nargs;
 	(void)args;
 
-	/*thread_join test*/
-	kprintf("Starting thread_join test...\n");
-    kprintf("Join in order thread 2,1,4,3\n");
-	runthreads();
-	kprintf("Thread_join test done.\n");
-
-    /*Lock test*/
+	/*Lock test*/
     kprintf("Starting lock test...\n");
     asst1_locktest();
     kprintf("Lock test done.\n");
@@ -273,6 +245,11 @@ asst1_tests(int nargs, char **args)
     kprintf("Starting CV test...\n");
     asst1_cvtest();
     kprintf("CV test done.\n");
+
+    /*thread_join test*/
+    kprintf("Starting thread_join test.\n");
+    runthreads(1);
+    kprintf("\nthread_join test done.\n");
 
     
 

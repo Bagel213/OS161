@@ -543,9 +543,6 @@ thread_fork_join(const char *name,
     newthread->sem_parent = sem_create(newthread->t_name, 0);
     newthread->sem_child = sem_create(newthread->t_name, 0);
     
-
-        
-    
     /*keep track of number of children*/    
     curthread->child_count+=1;
     
@@ -644,6 +641,7 @@ thread_fork(const char *name,
 int thread_join(struct thread *thread){
       
             int childID;    //return value 
+             
             if(thread->t_parent == true){
              P(thread->sem_child);               //Wait for child to finish
              curthread->child_count--;
