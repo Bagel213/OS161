@@ -54,34 +54,33 @@ static
 void
 runthreads(void)
 {	
-    char name_one[7] = "thread";
-    char name_two[7] = "thread2";
-    char name_three[7] = "thread3";
-    char name_four[7] = "thread4";
+    char name[7] = "thread";
+    
     int i = 1;
-    int result, result2, result3, result4;
+    int result;
+    struct thread *threads[2];
     
 
 	/*Create four forks (children) for testing with unique names*/
-		snprintf(name_one, sizeof(name_one), "threadtest%d", i);
-		result = thread_fork(name_one, NULL,
+		snprintf(name, sizeof(name), "threadtest%d", i);
+		result = thread_fork_join(name, NULL,
 				     jointhisthread,
-				     NULL, i);
+				     NULL, i, &(threads[i]));
 		if (result) {
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
 		}
 
-		snprintf(name_one, sizeof(name_two), "threadtest%d", i);
-		result2 = thread_fork(name_two, NULL,
+		snprintf(name, sizeof(name), "threadtest%d", i);
+		result = thread_fork_join(name, NULL,
 				     jointhisthreadTwo,
-				     NULL, i);
-		if (result2) {
+				     NULL, i, &(threads[i+1]));
+		if (result) {
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
         }
-        	snprintf(name_one, sizeof(name_one), "threadtest%d", i);
-		result3 = thread_fork(name_three, NULL,
+        /*	snprintf(name_one, sizeof(name_one), "threadtest%d", i);
+		result = thread_fork(name_three, NULL,
 				     jointhisthread,
 				     NULL, i);
 		if (result3) {
@@ -90,27 +89,23 @@ runthreads(void)
 		}
 
 		snprintf(name_one, sizeof(name_two), "threadtest%d", i);
-		result4 = thread_fork(name_four, NULL,
+		result = thread_fork(name_four, NULL,
 				     jointhisthreadTwo,
 				     NULL, i);
 		if (result4) {
 			panic("threadtest: thread_fork failed %s)\n",
 			      strerror(result));
-        }
+        }*/
 
         
 	
     /*Call thread join and display the thread id of each child on return 
     Thread name_one completes first, but thread two is joined first and so on. Thus
         they return in order of joins and not the order of completion*/
-    result = thread_join(name_two);
+    result = thread_join(threads[i+1]);
     kprintf("Returned thread id:%d\n", result);
-    result2 = thread_join(name_one);
-    kprintf("Returned thread id:%d\n", result2);
-    result = thread_join(name_four);
+      result = thread_join(threads[i]);
     kprintf("Returned thread id:%d\n", result);
-    result2 = thread_join(name_three);
-    kprintf("Returned thread id:%d\n", result2);
     /*If return value is zero either the name was not that of a child*/
     	
 	
@@ -249,7 +244,9 @@ asst1_cvtest(void)
     gettime(&timeEnd);
     timespec_sub(&timeEnd, &time, &timeEnd);
     kprintf("Time elapsed in waiting thread = %d.  Successful wait and broadcast.\n", timeEnd.tv_nsec); 
-    lock_release(lockb);    
+    lock_release(lockb);  
+    cv_destroy(cv);
+    lock_destroy(lockb);  
 		   
 		
 

@@ -36,8 +36,8 @@
 #include <synch.h>
 #include <test.h>
 
-#define NTHREADS  8
 
+#define NTHREADS  8
 static struct semaphore *tsem = NULL;
 
 static

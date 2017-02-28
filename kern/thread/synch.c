@@ -257,7 +257,7 @@ cv_destroy(struct cv *cv)
         kfree(cv->cv_name);
         kfree(cv);
         cv = NULL;
-        KASSERT(cv != NULL);
+        KASSERT(cv == NULL);
 }
 
 void

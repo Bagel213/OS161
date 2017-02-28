@@ -115,10 +115,10 @@ struct thread {
     int child_count;                //child counter    
     struct semaphore *sem_parent;   //pointer to parent's semaphore
     struct semaphore *sem_child;     //pointer to owned semaphore
-    bool t_join;                    //Let a thread know it needs to join, thus unlock parent on exit
+   
     bool t_parent;
-                   //Variable to let join know if thread completed prior to join being called
-    struct array *child_list;       //Array of child pointers for list of children  
+                  
+    
     struct thread *t_child;         //pointer to child for array_add and for thread_join implentation    
 };
 
@@ -158,13 +158,17 @@ int thread_fork(const char *name, struct proc *proc,
                 void (*func)(void *, unsigned long),
                 void *data1, unsigned long data2);
 
+int thread_fork_join(const char *name, struct proc *proc,
+                void (*func)(void *, unsigned long),
+                void *data1, unsigned long data2, struct thread **thread);
+
 /*
  * Cause the current thread to exit.
  * Interrupts need not be disabled.
  */
 __DEAD void thread_exit(void);
 
-int thread_join(const char *name);
+int thread_join(struct thread *thread);
 
 /*
  * Cause the current thread to yield to the next runnable thread, but

@@ -157,10 +157,8 @@ thread_create(const char *name)
     thread->child_count = 0;          
     tid_counter += 10;              //increment thread ID by 10 
     thread->my_tid = tid_counter;   //Set thread ID
-    thread->t_parent = false;       //Does thread have parent?
-             
-    thread->child_list = array_create();  //maintain list of all children
-    thread->sem_parent = NULL;              //Semaphores for waiting
+    thread->t_parent = false;       //Does thread have parent     
+    thread->sem_parent = NULL;      //Semaphores for waiting
     thread->sem_child = NULL;
     return thread;
 }
@@ -510,10 +508,10 @@ thread_make_runnable(struct thread *target, bool already_have_lock)
  * as the caller, unless the scheduler intervenes first.
  */
 int
-thread_fork(const char *name,
+thread_fork_join(const char *name,
 	    struct proc *proc,
 	    void (*entrypoint)(void *data1, unsigned long data2),
-	    void *data1, unsigned long data2)
+	    void *data1, unsigned long data2, struct thread **thread)
 {
 	struct thread *newthread;
     int result;
@@ -553,8 +551,9 @@ thread_fork(const char *name,
     
     /*Set parent pointer to its new child and add to list of children*/
     curthread->t_child = newthread;
-    array_add(curthread->child_list, curthread->t_child, NULL);
     newthread->t_parent = true;
+
+    *thread = newthread;
         
     
 
@@ -585,24 +584,76 @@ thread_fork(const char *name,
 	return 0;
 }
 
-int thread_join(const char *name){
-    
-    struct thread *thread;    
-    int childID;    //return value 
-    int count = curthread->child_count;
-         
-    for(int i=1; i < count; i++){               //check that request join name is a child
-        thread = array_get(curthread->child_list, i);        
-        if (strcmp(name, thread->t_name) == 0){ 
-            P(thread->sem_child);               //Wait for child to finish
-            curthread->child_count--;
-            childID = thread->my_tid;
-            V(thread->sem_parent);              //Wake up child if waiting
-            array_remove(curthread->child_list, i);            
+int
+thread_fork(const char *name,
+	    struct proc *proc,
+	    void (*entrypoint)(void *data1, unsigned long data2),
+	    void *data1, unsigned long data2)
+{
+	struct thread *newthread;
+	int result;
+
+	newthread = thread_create(name);
+	if (newthread == NULL) {
+		return ENOMEM;
+	}
+
+	/* Allocate a stack */
+	newthread->t_stack = kmalloc(STACK_SIZE);
+	if (newthread->t_stack == NULL) {
+		thread_destroy(newthread);
+		return ENOMEM;
+	}
+	thread_checkstack_init(newthread);
+
+	/*
+	 * Now we clone various fields from the parent thread.
+	 */
+
+	/* Thread subsystem fields */
+	newthread->t_cpu = curthread->t_cpu;
+
+	/* Attach the new thread to its process */
+	if (proc == NULL) {
+		proc = curthread->t_proc;
+	}
+	result = proc_addthread(proc, newthread);
+	if (result) {
+		/* thread_destroy will clean up the stack */
+		thread_destroy(newthread);
+		return result;
+	}
+
+	/*
+	 * Because new threads come out holding the cpu runqueue lock
+	 * (see notes at bottom of thread_switch), we need to account
+	 * for the spllower() that will be done releasing it.
+	 */
+	newthread->t_iplhigh_count++;
+
+	/* Set up the switchframe so entrypoint() gets called */
+	switchframe_init(newthread, entrypoint, data1, data2);
+
+	/* Lock the current cpu's run queue and make the new thread runnable */
+	thread_make_runnable(newthread, false);
+
+	return 0;
+}
+
+
+int thread_join(struct thread *thread){
+      
+            int childID;    //return value 
+            if(thread->t_parent == true){
+             P(thread->sem_child);               //Wait for child to finish
+             curthread->child_count--;
+             childID = thread->my_tid;
+             V(thread->sem_parent);              //Wake up child if waiting
+                       
             return childID;        
         }
         
-   }   
+     
     return 0;   //if name is not a child return 0
 }
     
@@ -859,13 +910,14 @@ thread_exit(void)
     if (cur->t_parent == true){
     //release wait for child    
     V(cur->sem_child);
-    //wiat for parent
+    //wait for parent
     P(cur->sem_parent);
-    }    
+        
     
     /*clean up semaphores*/
-    sem_destroy(cur->sem_child);
-    sem_destroy(cur->sem_parent);
+   sem_destroy(cur->sem_child);
+   sem_destroy(cur->sem_parent);
+   }
 	
     /* Interrupts off on this processor */
         splhigh();
