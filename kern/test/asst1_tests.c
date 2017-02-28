@@ -69,7 +69,7 @@ void
 runthreads(int doloud)
 {
 	char name[16];
-	int i, result;
+	int i, result, id;
     struct thread *threads[8];
 
 	for (i=0; i<NTHREADS; i++) {
@@ -84,7 +84,8 @@ runthreads(int doloud)
 	}
 
 	for (i=0; i<NTHREADS; i++) {
-		thread_join(threads[i]);
+		id = thread_join(threads[i]);
+        kprintf("%d thread joined.\n", id);
 	}
 }
 
